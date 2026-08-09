@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Klasemen Liga PES 2017</title>
+  <title>Klasemen & Riwayat Liga PES 2017</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -16,25 +16,26 @@
         <i class="fa-solid font-bold text-yellow-400 text-3xl fa-trophy"></i>
         <div>
           <h1 class="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">KLASEMEN PES 2017</h1>
-          <p class="text-xs text-indigo-300">Sistem Poin & Statistik Otomatis SteinHQ</p>
+          <p class="text-xs text-indigo-300">Sistem Poin, Statistik & Riwayat Liga</p>
         </div>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-wrap">
         <button onclick="switchTab('klasemen')" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-semibold text-sm transition">Klasemen</button>
-        <button onclick="switchTab('kelola')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 rounded-lg font-semibold text-sm transition">Kelola Tim & Stat</button>
+        <button onclick="switchTab('riwayat')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 rounded-lg font-semibold text-sm transition">Riwayat</button>
+        <button onclick="switchTab('kelola')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 rounded-lg font-semibold text-sm transition">Kelola Tim</button>
       </div>
     </div>
   </header>
 
   <div class="max-w-6xl mx-auto px-4">
-    <!-- Dashboard Juara (Juara >= 50 poin) -->
+    <!-- Dashboard Juara -->
     <div id="championBanner" class="hidden mb-8 bg-gradient-to-r from-yellow-600/30 via-amber-500/20 to-yellow-600/30 border border-yellow-500/50 rounded-2xl p-6 text-center backdrop-blur-sm relative overflow-hidden shadow-2xl">
       <div class="text-xs font-bold uppercase tracking-widest text-yellow-400 mb-1">👑 Juara Musim Ini 👑</div>
       <h2 id="championName" class="text-3xl md:text-5xl font-black text-yellow-300 drop-shadow mb-2"></h2>
       <p id="championPoints" class="text-slate-300 font-medium"></p>
     </div>
 
-    <!-- Tab Klasemen -->
+    <!-- Tab Klasemen Utam -->
     <div id="tabKlasemen" class="space-y-4">
       <div class="bg-slate-800/80 rounded-xl border border-slate-700/60 overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
@@ -53,17 +54,25 @@
                 <th class="p-4 text-center">Pelatih</th>
               </tr>
             </thead>
-            <tbody id="tableBody" class="divide-y divide-slate-700/50">
-              <!-- Rendered by JS -->
-            </tbody>
+            <tbody id="tableBody" class="divide-y divide-slate-700/50"></tbody>
           </table>
         </div>
       </div>
     </div>
 
+    <!-- Tab Riwayat -->
+    <div id="tabRiwayat" class="hidden space-y-6">
+      <div class="flex justify-between items-center">
+        <h3 class="text-xl font-bold text-slate-100">Riwayat Perubahan Klasemen</h3>
+        <span class="text-xs text-slate-400">Otomatis tersimpan tiap pembaruan data</span>
+      </div>
+      <div id="historyContainer" class="space-y-6">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
     <!-- Tab Kelola Tim & Stat -->
     <div id="tabKelola" class="hidden space-y-8">
-      <!-- Form Input Tim -->
       <div class="bg-slate-800/80 rounded-xl p-6 border border-slate-700/60">
         <h3 class="text-lg font-bold text-indigo-400 mb-4" id="formTitle">Tambah / Edit Tim</h3>
         <form id="teamForm" onsubmit="handleFormSubmit(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -107,32 +116,39 @@
             </div>
           </div>
           <div class="md:col-span-2 flex gap-2 pt-2">
-            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-lg text-sm font-semibold transition">Simpan Data</button>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-lg text-sm font-semibold transition">Simpan Data & Catat Riwayat</button>
             <button type="button" onclick="resetForm()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-lg text-sm transition">Batal</button>
           </div>
         </form>
       </div>
 
-      <!-- Daftar Tim untuk Edit/Hapus -->
       <div class="bg-slate-800/80 rounded-xl p-6 border border-slate-700/60">
         <h3 class="text-lg font-bold text-slate-200 mb-4">Daftar Tim Terdaftar</h3>
-        <div id="manageList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Rendered by JS -->
-        </div>
+        <div id="manageList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
       </div>
     </div>
   </div>
 
   <script>
-    const API_URL = 'https://api.steinhq.com/v1/storages/6a78517e92b1163e972c59d4/Teams';
+    const BASE_URL = 'https://api.steinhq.com/v1/storages/6a78517e92b1163e972c59d4';
+    const API_TEAMS = `${BASE_URL}/Teams`;
+    const API_HISTORY = `${BASE_URL}/History`;
+    
     let rawTeamsData = [];
+    let historyData = [];
 
-    async function fetchTeams() {
+    async function fetchAllData() {
       try {
-        const res = await fetch(API_URL);
-        rawTeamsData = await res.json();
+        const [resTeams, resHist] = await Promise.all([
+          fetch(API_TEAMS),
+          fetch(API_HISTORY)
+        ]);
+        rawTeamsData = await resTeams.json();
+        historyData = await resHist.json();
+        
         renderKlasemen();
         renderManageList();
+        renderHistory();
       } catch (err) {
         console.error('Gagal mengambil data:', err);
       }
@@ -200,6 +216,89 @@
       });
     }
 
+    async function saveHistorySnapshot() {
+      const sorted = calculateAndSortTeams(rawTeamsData);
+      const snapshot = sorted.map((t, idx) => ({
+        pos: idx + 1,
+        name: t.name,
+        pts: t.points,
+        r1: t.r1,
+        r2: t.r2,
+        r3: t.r3
+      }));
+
+      const payload = {
+        id: Date.now().toString(),
+        timestamp: new Date().toLocaleString('id-ID'),
+        data_json: JSON.stringify(snapshot)
+      };
+
+      await fetch(API_HISTORY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([payload])
+      });
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('historyContainer');
+      container.innerHTML = '';
+
+      if (!historyData || historyData.length === 0) {
+        container.innerHTML = `<p class="text-slate-400 text-sm">Belum ada riwayat perubahannya.</p>`;
+        return;
+      }
+
+      // Urutkan dari yang terbaru
+      const reversed = [...historyData].reverse();
+
+      reversed.forEach((h, index) => {
+        let teamsList = [];
+        try {
+          teamsList = JSON.parse(h.data_json);
+        } catch(e) { return; }
+
+        let listHtml = teamsList.map(t => `
+          <div class="flex justify-between items-center text-xs py-1 border-b border-slate-800">
+            <span class="font-bold w-6 text-slate-400">#${t.pos}</span>
+            <span class="font-semibold flex-1 text-slate-200">${t.name}</span>
+            <span class="text-indigo-400 font-bold">${t.pts} Pts</span>
+          </div>
+        `).join('');
+
+        container.innerHTML += `
+          <div class="bg-slate-800/80 p-5 rounded-xl border border-slate-700/60 shadow-lg">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <span class="text-xs bg-indigo-900/60 text-indigo-300 border border-indigo-700/50 px-2.5 py-1 rounded-full font-semibold">Update #${historyData.length - index}</span>
+                <span class="text-xs text-slate-400 ml-2"><i class="fa-regular fa-clock"></i> ${h.timestamp}</span>
+              </div>
+              <button onclick="shareToWA('${h.timestamp}', '${encodeURIComponent(h.data_json)}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-brands fa-whatsapp text-sm"></i> Share WA
+              </button>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800 space-y-1">
+              ${listHtml}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function shareToWA(timestamp, encodedJson) {
+      const teams = JSON.parse(decodeURIComponent(encodedJson));
+      
+      let text = `🏆 *UPDATE KLASEMEN LIGA PES 2017* 🏆\n📅 _${timestamp}_\n\n`;
+      teams.forEach(t => {
+        let icon = t.pos === 1 ? '🥇' : t.pos === 2 ? '🥈' : t.pos === 3 ? '🥉' : '🔹';
+        text += `${icon} *#${t.pos} ${t.name}* - ${t.pts} Pts (🏆${t.r1})\n`;
+      });
+      text += `\n🔥 _Pantau klasemen selengkapnya di web resmi!_`;
+
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(waUrl, '_blank');
+    }
+
     function renderManageList() {
       const list = document.getElementById('manageList');
       list.innerHTML = '';
@@ -207,7 +306,7 @@
         list.innerHTML += `
           <div class="bg-slate-900 p-4 rounded-lg border border-slate-700/60 flex justify-between items-center">
             <div class="flex items-center gap-3">
-              <img src="${t.logo}" class="w-10 h-10 object-contain">
+              <img src="${t.logo}" class="w-10 h-10 object-contain" onerror="this.src='https://via.placeholder.com/40'">
               <div>
                 <h4 class="font-bold text-slate-100">${t.name}</h4>
                 <p class="text-xs text-slate-400">ID: ${t.id}</p>
@@ -239,20 +338,23 @@
       };
 
       if (document.getElementById('editId').value) {
-        await fetch(API_URL, {
+        await fetch(API_TEAMS, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ condition: { id: payload.id }, set: payload })
         });
       } else {
-        await fetch(API_URL, {
+        await fetch(API_TEAMS, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify([payload])
         });
       }
+
       resetForm();
-      fetchTeams();
+      await fetchAllData();
+      await saveHistorySnapshot();
+      await fetchAllData();
     }
 
     function editTeam(id) {
@@ -273,12 +375,14 @@
 
     async function deleteTeam(id) {
       if (!confirm('Yakin ingin menghapus tim ini?')) return;
-      await fetch(API_URL, {
+      await fetch(API_TEAMS, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ condition: { id } })
       });
-      fetchTeams();
+      await fetchAllData();
+      await saveHistorySnapshot();
+      await fetchAllData();
     }
 
     function resetForm() {
@@ -289,10 +393,11 @@
 
     function switchTab(tab) {
       document.getElementById('tabKlasemen').classList.toggle('hidden', tab !== 'klasemen');
+      document.getElementById('tabRiwayat').classList.toggle('hidden', tab !== 'riwayat');
       document.getElementById('tabKelola').classList.toggle('hidden', tab !== 'kelola');
     }
 
-    fetchTeams();
+    fetchAllData();
   </script>
 </body>
 </html>
